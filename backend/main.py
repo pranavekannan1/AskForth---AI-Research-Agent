@@ -48,10 +48,13 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # Local development
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+
+        # Production frontend
+        "https://ask-forth-ai-research-agent.vercel.app",
     ],
-    allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,7 +64,6 @@ app.add_middleware(
 # =========================================================
 # REQUEST MODELS
 # =========================================================
-
 
 class ChatRequest(BaseModel):
     message: str
@@ -84,7 +86,6 @@ class ResearchPlanRequest(BaseModel):
 # ROOT
 # =========================================================
 
-
 @app.get("/")
 def root():
     return {
@@ -98,7 +99,6 @@ def root():
 # BASIC HEALTH CHECK
 # =========================================================
 
-
 @app.get("/health")
 def health():
     return {
@@ -110,7 +110,6 @@ def health():
 # =========================================================
 # POSTGRESQL HEALTH CHECK
 # =========================================================
-
 
 @app.get("/health/db")
 def database_health(
@@ -136,7 +135,6 @@ def database_health(
 # =========================================================
 # CHAT
 # =========================================================
-
 
 @app.post("/chat")
 def chat(
@@ -164,7 +162,6 @@ def chat(
 # =========================================================
 # CREATE RESEARCH SESSION
 # =========================================================
-
 
 @app.post("/research/session")
 def create_session(
@@ -199,7 +196,6 @@ def create_session(
 # GET RESEARCH SESSION
 # =========================================================
 
-
 @app.get("/research/session/{session_id}")
 def get_session(
     session_id: str,
@@ -224,7 +220,6 @@ def get_session(
 # =========================================================
 # INTERVIEW
 # =========================================================
-
 
 @app.post("/research/session/{session_id}/interview")
 def answer_interview(
@@ -275,7 +270,6 @@ def answer_interview(
 # RESEARCH PROJECT HISTORY
 # =========================================================
 
-
 @app.get("/research/projects")
 def get_research_projects(
     current_user=Depends(get_current_user),
@@ -295,7 +289,6 @@ def get_research_projects(
 # =========================================================
 # RESEARCH PLAN
 # =========================================================
-
 
 @app.post("/research/plan")
 def research_plan(
@@ -328,7 +321,6 @@ def research_plan(
 # =========================================================
 # GENERATE RESEARCH REPORT
 # =========================================================
-
 
 @app.post("/research/session/{session_id}/report")
 def generate_report(
@@ -366,9 +358,7 @@ def generate_report(
     ):
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Research interview is not complete yet."
-            ),
+            detail="Research interview is not complete yet.",
         )
 
     try:
@@ -458,9 +448,7 @@ def generate_report(
 
         raise HTTPException(
             status_code=500,
-            detail=(
-                f"Research report generation failed: {exc}"
-            ),
+            detail=f"Research report generation failed: {exc}",
         )
 
 
