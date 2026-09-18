@@ -225,7 +225,7 @@ button { cursor: pointer; }
 }
 
 @media print {
-  @page { size: A4; margin: 16mm; }
+  @page { size: A4; margin: 15mm 16mm 17mm; }
   body { background: #fff !important; }
   .research-sidebar,
   .research-topbar,
@@ -240,10 +240,21 @@ button { cursor: pointer; }
   .research-main { display: block; height: auto; }
   .conversation { overflow: visible; }
   .report-page { width: auto; min-height: auto; padding: 0; margin: 0; }
-  .report-heading { break-after: avoid; }
-  .report-body h2, .report-body h3 { break-after: avoid; }
-  .report-table-wrapper { overflow: visible; break-inside: avoid; }
-  .report-table { font-size: 9pt; }
+  .report-heading { break-after: avoid; padding-bottom: 12pt; margin-bottom: 18pt; }
+  .report-heading h2 { font-size: 24pt; }
+  .report-heading p { font-size: 10pt; }
+  .report-body { color: #222; font-size: 10.5pt; line-height: 1.55; }
+  .report-body h1 { margin: 0 0 14pt; font-size: 20pt; }
+  .report-body h2, .report-body h3, .report-body h4 { break-after: avoid; }
+  .report-body h2 { margin-top: 20pt; font-size: 15pt; }
+  .report-body h3 { margin-top: 15pt; font-size: 12pt; }
+  .report-body p, .report-body li { orphans: 3; widows: 3; }
+  .report-table-wrapper { overflow: visible; break-inside: auto; }
+  .report-table { font-size: 8.5pt; }
+  .report-table thead { display: table-header-group; }
+  .report-table tr { break-inside: avoid; }
+  .report-table th, .report-table td { padding: 5pt 6pt; }
   .sources { break-before: auto; }
+  .diagnostics-output { display: none !important; }
   a { color: #222 !important; text-decoration: none; }
 }
