@@ -13,8 +13,7 @@ DEFAULT_PROFILE = {
 }
 
 
-def get_or_create_user(db: Session, user_data: dict):
-    uid = user_data["uid"]
+def get_or_create_user(db: Session, uid: str):
     user = db.query(User).filter(User.uid == uid).first()
 
     if user:
@@ -29,8 +28,8 @@ def get_or_create_user(db: Session, user_data: dict):
     return user
 
 
-def create_research_session(db: Session, topic: str, user_data: dict):
-    user = get_or_create_user(db, user_data)
+def create_research_session(db: Session, user_id: str, topic: str):
+    user = get_or_create_user(db, user_id)
 
     project = ResearchProject(
         id=str(uuid4()),
@@ -53,12 +52,15 @@ def create_research_session(db: Session, topic: str, user_data: dict):
     return project
 
 
-def get_research_session(db: Session, session_id: str):
-    return (
-        db.query(ResearchProject)
-        .filter(ResearchProject.id == session_id)
-        .first()
-    )
+def get_research_session(
+    db: Session,
+    session_id: str,
+    user_id: str | None = None,
+):
+    query = db.query(ResearchProject).filter(ResearchProject.id == session_id)
+    if user_id is not None:
+        query = query.filter(ResearchProject.user_id == user_id)
+    return query.first()
 
 
 def list_research_projects(db: Session, user_id: str):

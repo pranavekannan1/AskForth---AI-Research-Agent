@@ -53,15 +53,13 @@ def project_to_dict(project):
 
 def process_interview_answer(
     db: Session,
-    session_id: str,
-    topic: str,
-    question: str,
+    project,
     answer: str,
 ):
     project = add_answer(
         db,
-        session_id,
-        question,
+        project.id,
+        project.current_question or "",
         answer,
     )
 
@@ -71,16 +69,12 @@ def process_interview_answer(
     if project.question_index >= 3:
         completed = complete_research_profile(
             db,
-            session_id,
+            project.id,
         )
-
-        return {
-            **project_to_dict(completed),
-            "message": "Research requirements collected successfully.",
-        }
+        return completed
 
     next_question = generate_interview_question(
-        topic,
+        project.topic,
         project.answers,
     )
 
@@ -90,7 +84,4 @@ def process_interview_answer(
         next_question,
     )
 
-    return {
-        **project_to_dict(project),
-        "question": next_question,
-    }
+    return project

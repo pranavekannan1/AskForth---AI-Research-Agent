@@ -332,6 +332,7 @@ export default function ResearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeView, setActiveView] = useState<"chat" | "report">("chat");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
@@ -630,6 +631,7 @@ export default function ResearchPage() {
   }
 
   async function openProject(id: string) {
+    setSidebarOpen(false);
     setLoading(true);
     setError("");
 
@@ -669,6 +671,7 @@ export default function ResearchPage() {
   }
 
   function newResearch() {
+    setSidebarOpen(false);
     localStorage.removeItem(ACTIVE_SESSION_KEY);
     setSession(null);
     setTopic("");
@@ -680,6 +683,7 @@ export default function ResearchPage() {
   }
 
   async function logout() {
+    setSidebarOpen(false);
     setAccountOpen(false);
     localStorage.removeItem(ACTIVE_SESSION_KEY);
     await signOut(auth);
@@ -724,7 +728,22 @@ export default function ResearchPage() {
 
   return (
     <div className="research-shell">
-      <aside className="research-sidebar">
+      {sidebarOpen && (
+        <button
+          className="sidebar-backdrop"
+          aria-label="Close navigation"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <aside className={`research-sidebar ${sidebarOpen ? "open" : ""}`}>
+        <button
+          className="sidebar-close"
+          aria-label="Close navigation"
+          onClick={() => setSidebarOpen(false)}
+        >
+          ×
+        </button>
         <div className="research-brand">
           <span>✦</span>
           AskForth
@@ -813,6 +832,14 @@ export default function ResearchPage() {
 
       <main className="research-main">
         <header className="research-topbar">
+          <button
+            className="mobile-menu-button"
+            aria-label="Open navigation"
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen(true)}
+          >
+            ☰
+          </button>
           <div className="topbar-title">
             <div className="top-kicker">RESEARCH WORKSPACE</div>
             <h1>{session?.topic || "What would you like to research?"}</h1>

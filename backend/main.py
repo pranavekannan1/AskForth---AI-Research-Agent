@@ -186,6 +186,15 @@ def create_session(
         topic=topic,
     )
 
+    try:
+        question = generate_interview_question(topic, [])
+        project = set_current_question(db, project, question)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not start the research interview: {exc}",
+        ) from exc
+
     return project_to_dict(project)
 
 
