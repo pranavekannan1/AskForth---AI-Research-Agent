@@ -24,6 +24,7 @@ from services.interview_service import (
 
 from services.research_planner import create_research_plan as generate_research_plan
 from services.research_report_service import generate_research_report
+from services.llm_service import revise_research_report
 
 
 app = FastAPI(
@@ -433,3 +434,69 @@ def generate_report(
         "sources": session.sources,
         "research_plan": session.research_plan,
     }
+
+
+# ============================================================
+# IMPROVE RESEARCH REPORT
+# ============================================================
+
+@app.post("/research/session/{session_id}/chat")
+def improve_report(
+    session_id: str,
+    request: ChatRequest,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    message = request.message.strip()
+
+    if not message:
+        raise HTTPException(
+            status_code=400,
+            detail="Message cannot be empty",
+        )
+
+    session = get_research_session(
+        db=db,
+        session_id=session_id,
+        user_id=current_user["uid"],
+    )
+
+    if not session:
+        raise HTTPException(
+            status_code=404,
+            detail="Research session not found",
+        )
+    if session.report_status != "completed" or not session.report:
+        raise HTTPException(
+            status_code=409,
+            detail="A completed report is required before it can be improved",
+        )
+
+    conversation = list(session.messages or [])
+    conversation.append({"role": "user", "content": message})
+
+    try:
+        revision = revise_research_report(
+            topic=session.topic,
+            report=session.report,
+            sources=session.sources or [],
+            conversation=conversation,
+            request=message,
+        )
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to improve research report: {exc}",
+        )
+
+    session.report = revision["report"]
+    session.sources = revision["sources"]
+    session.messages = conversation + [{
+        "role": "assistant",
+        "content": revision["assistant_message"],
+    }]
+    db.commit()
+    db.refresh(session)
+
+    return project_to_dict(session)

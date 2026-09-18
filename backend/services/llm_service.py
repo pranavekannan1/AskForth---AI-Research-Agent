@@ -1,3 +1,5 @@
+import json
+
 from groq import Groq
 
 from core.config import GROQ_API_KEY
@@ -22,3 +24,98 @@ def generate_response(message: str) -> str:
         raise RuntimeError("Groq returned an empty response")
 
     return content
+
+
+def revise_research_report(
+    topic: str,
+    report: str,
+    sources: list[str],
+    conversation: list[dict],
+    request: str,
+) -> dict:
+    prompt = f"""
+You are AskForth, an evidence-first AI research editor.
+
+The user wants to improve an existing research report. Use the user's latest
+request and the conversation to make the requested changes. Preserve accurate
+existing evidence and source URLs. Do not invent sources, statistics, quotes,
+or facts. If the request asks for new factual claims, clearly mark limitations
+when the existing evidence is insufficient.
+
+Return ONLY valid JSON with exactly these keys:
+{{
+  "assistant_message": "A concise explanation of what you changed or why more detail is needed.",
+  "report": "The complete revised Markdown report.",
+  "sources": ["https://example.com/source"]
+}}
+
+Topic:
+{topic}
+
+Existing report:
+{report}
+
+Existing sources:
+{json.dumps(sources, ensure_ascii=False)}
+
+Conversation:
+{json.dumps(conversation[-12:], ensure_ascii=False)}
+
+Latest user request:
+{request}
+
+The report value must contain the complete report, not only the changed section.
+Keep the report in Markdown and keep its important sections unless the user
+specifically asks to remove or reorganize them.
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+        )
+    except Exception as structured_error:
+        try:
+            response = client.chat.completions.create(
+                model="openai/gpt-oss-120b",
+                messages=[{"role": "user", "content": prompt}],
+            )
+        except Exception:
+            raise structured_error
+
+    content = response.choices[0].message.content
+    if not content:
+        raise RuntimeError("Groq returned an empty report revision")
+
+    try:
+        result = json.loads(content)
+    except json.JSONDecodeError as exc:
+        cleaned_content = content.strip()
+        if cleaned_content.startswith("```"):
+            cleaned_content = cleaned_content.removeprefix("```").strip()
+            if cleaned_content.startswith("json"):
+                cleaned_content = cleaned_content[4:].strip()
+            if cleaned_content.endswith("```"):
+                cleaned_content = cleaned_content[:-3].strip()
+        try:
+            result = json.loads(cleaned_content)
+        except json.JSONDecodeError:
+            raise RuntimeError("Groq returned an invalid report revision") from exc
+
+    revised_report = result.get("report")
+    assistant_message = result.get("assistant_message")
+    revised_sources = result.get("sources", sources)
+
+    if not isinstance(revised_report, str) or not revised_report.strip():
+        raise RuntimeError("Groq returned an empty revised report")
+    if not isinstance(assistant_message, str) or not assistant_message.strip():
+        assistant_message = "I updated the report using your requested changes."
+    if not isinstance(revised_sources, list):
+        revised_sources = sources
+
+    return {
+        "assistant_message": assistant_message.strip(),
+        "report": revised_report.strip(),
+        "sources": [source for source in revised_sources if isinstance(source, str)],
+    }

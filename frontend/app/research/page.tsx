@@ -577,12 +577,13 @@ export default function ResearchPage() {
 
       setSession((current) => current ? {
         ...current,
+        report: data.report || current.report,
         messages: data.messages || current.messages || [],
         sources: data.sources || current.sources || [],
       } : current);
     } catch (err) {
       console.error("Sending research message failed", err);
-      setError("Could not send your message. Please try again.");
+      setError(err instanceof Error ? err.message : "Could not improve the report. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -980,13 +981,13 @@ export default function ResearchPage() {
             <textarea
               value={followup}
               onChange={(event) => setFollowup(event.target.value)}
-              placeholder="Ask anything about this research…"
+              placeholder="Ask the agent to improve this report…"
               rows={2}
               onKeyDown={(event) => handleComposerKeyDown(event, event.currentTarget.form)}
               disabled={loading}
             />
             <div className="composer-footer">
-              <span>Enter to send · Shift + Enter for a new line · AskForth can verify follow-up claims</span>
+              <span>Request edits, added detail, a different structure, or clearer conclusions</span>
               <button disabled={loading || !followup.trim()}>{loading ? "…" : "↑"}</button>
             </div>
           </form>

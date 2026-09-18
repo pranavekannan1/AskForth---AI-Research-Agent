@@ -46,7 +46,7 @@ Ask follow-up questions in the same session
 - Compact, PDF-friendly report tables
 - Retrieved source links
 - Persistent conversation messages
-- Follow-up chat inside the same research session
+- Follow-up chat that can improve and rewrite the saved report
 - Active-session restoration after refresh/browser restart
 - Account menu with logout and switch-account behavior
 - Research retry state when a report generation fails
@@ -80,7 +80,8 @@ Login
   -> Research plan
   -> Web research
   -> Saved report
-  -> Follow-up conversation
+  -> Request report improvements
+  -> Save the updated report as PDF
 ```
 
 Refreshing the browser restores the authenticated user and the active research session from PostgreSQL.
