@@ -331,6 +331,7 @@ export default function ResearchPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [diagnostics, setDiagnostics] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<"chat" | "report">("chat");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -474,6 +475,21 @@ export default function ResearchPage() {
         text,
       },
     ]);
+  }
+
+  async function diagnoseError() {
+    setDiagnostics("Checking the backend and authentication configuration...");
+    try {
+      const response = await fetch("/api/mcp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tool: "diagnostics" }),
+      });
+      const data = await response.json();
+      setDiagnostics(JSON.stringify(data.result || data, null, 2));
+    } catch {
+      setDiagnostics("The diagnostics tool could not be reached.");
+    }
   }
 
   async function startResearch() {
@@ -1011,7 +1027,13 @@ export default function ResearchPage() {
           )}
         </section>
 
-        {error && <div className="workspace-error">{error}</div>}
+        {error && (
+          <div className="workspace-error">
+            <span>{error}</span>
+            <button className="diagnose-button" onClick={diagnoseError}>Diagnose error</button>
+          </div>
+        )}
+        {diagnostics && <pre className="diagnostics-output">{diagnostics}</pre>}
 
         {session?.report_status === "completed" ? (
           <form className="research-composer" onSubmit={sendFollowup}>

@@ -150,6 +150,9 @@ button { cursor: pointer; }
 .success-mark { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: #dff3e4; color: #28783a !important; font-weight: 800; }
 
 .workspace-error { width: min(820px, calc(100% - 40px)); margin: 0 auto 8px; padding: 8px 2px; color: #a63232; font-size: 11px; }
+.workspace-error span { display: block; }
+.diagnose-button { margin-top: 8px; padding: 7px 10px; border: 1px solid #c78d8d; border-radius: 7px; background: #fff; color: #8c2929; font-size: 10px; }
+.diagnostics-output { width: min(820px, calc(100% - 40px)); max-height: 260px; margin: 0 auto 12px; overflow: auto; padding: 12px; border: 1px solid #dedbd7; border-radius: 8px; background: #242326; color: #ddd; white-space: pre-wrap; font-size: 10px; line-height: 1.5; }
 .confirmation-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(10,10,10,.45); }
 .confirmation-dialog { width: min(400px, 100%); padding: 22px; border: 1px solid #dedbd7; border-radius: 14px; background: #fff; box-shadow: 0 24px 70px rgba(20,15,10,.22); }
 .confirmation-dialog h2 { margin: 0; color: #232124; font-size: 18px; }
