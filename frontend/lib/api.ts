@@ -4,6 +4,29 @@ const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   "http://127.0.0.1:8000";
 
+async function request(endpoint: string, options: RequestInit = {}) {
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, options);
+    const contentType = response.headers.get("content-type") || "";
+    const data = contentType.includes("application/json")
+      ? await response.json()
+      : { detail: await response.text() };
+
+    if (!response.ok) {
+      throw new Error(data.detail || "Backend request failed");
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        `Cannot reach the backend at ${API_URL}. Start the backend or set NEXT_PUBLIC_API_URL to its public URL.`,
+      );
+    }
+    throw error;
+  }
+}
+
 export async function authenticatedFetch(
   endpoint: string,
   options: RequestInit = {},
@@ -18,7 +41,7 @@ export async function authenticatedFetch(
 
   const idToken = await user.getIdToken();
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
+  return request(endpoint, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -26,39 +49,17 @@ export async function authenticatedFetch(
       Authorization: `Bearer ${idToken}`,
     },
   });
-
-  const contentType = response.headers.get("content-type") || "";
-  const data = contentType.includes("application/json")
-    ? await response.json()
-    : { detail: await response.text() };
-
-  if (!response.ok) {
-    throw new Error(data.detail || "Backend request failed");
-  }
-
-  return data;
 }
 
 export async function publicFetch(
   endpoint: string,
   options: RequestInit = {},
 ) {
-  const response = await fetch(`${API_URL}${endpoint}`, {
+  return request(endpoint, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
   });
-
-  const contentType = response.headers.get("content-type") || "";
-  const data = contentType.includes("application/json")
-    ? await response.json()
-    : { detail: await response.text() };
-
-  if (!response.ok) {
-    throw new Error(data.detail || "Backend request failed");
-  }
-
-  return data;
 }
