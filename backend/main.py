@@ -8,7 +8,6 @@ from core.auth import get_current_user
 from core.database import get_db
 
 from services.interview_service import (
-    generate_interview_question,
     process_interview_answer,
     project_to_dict,
 )
@@ -186,14 +185,11 @@ def create_session(
         topic=topic,
     )
 
-    try:
-        question = generate_interview_question(topic, [])
-        project = set_current_question(db, project, question)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Could not start the research interview: {exc}",
-        ) from exc
+    project = set_current_question(
+        db,
+        project,
+        "What is the main purpose of this research report?",
+    )
 
     return project_to_dict(project)
 

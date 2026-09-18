@@ -510,7 +510,7 @@ export default function ResearchPage() {
       await loadHistory();
     } catch (err) {
       console.error("Start research failed", err);
-      setError("Could not start research. Please try again.");
+      setError(err instanceof Error ? err.message : "Could not start research. Please try again.");
     } finally {
       setLoading(false);
     }
