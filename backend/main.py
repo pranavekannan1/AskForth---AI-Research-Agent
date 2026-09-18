@@ -40,6 +40,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "https://ask-forth-ai-research-agent.vercel.app",
+        "https://askforth-ai-research-agent.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
