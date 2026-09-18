@@ -1,58 +1,44 @@
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from core.auth import get_current_user
 from core.database import get_db
-
-from services.interview_service import (
-    process_interview_answer,
-    project_to_dict,
-)
-
-from services.llm_service import generate_response
-from services.research_planner import create_research_plan
+from core.firebase import verify_firebase_token
+from core.config import settings
 
 from services.research_service import (
     create_research_session,
     get_research_session,
     list_research_projects,
-    set_current_question,
+    save_interview_answer,
 )
 
-from services.research_report_service import (
-    generate_research_report,
+from services.interview_service import (
+    get_next_interview_question,
 )
 
+from services.research_planner import generate_research_plan
+from services.research_report_service import generate_research_report
 
-# =========================================================
-# APP
-# =========================================================
 
 app = FastAPI(
-    title="Askforth API",
-    version="1.0.0",
-    description=(
-        "Askforth - AI-powered research agent "
-        "that turns questions into evidence-based reports."
-    ),
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description="Askforth AI Research Agent Backend",
 )
 
 
-# =========================================================
+# ============================================================
 # CORS
-# =========================================================
+# ============================================================
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        # Local development
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-
-        # Production frontend
         "https://ask-forth-ai-research-agent.vercel.app",
     ],
     allow_credentials=True,
@@ -61,9 +47,9 @@ app.add_middleware(
 )
 
 
-# =========================================================
+# ============================================================
 # REQUEST MODELS
-# =========================================================
+# ============================================================
 
 class ChatRequest(BaseModel):
     message: str
@@ -73,7 +59,7 @@ class ResearchSessionRequest(BaseModel):
     topic: str
 
 
-class ResearchAnswerRequest(BaseModel):
+class InterviewAnswerRequest(BaseModel):
     answer: str
 
 
@@ -82,22 +68,21 @@ class ResearchPlanRequest(BaseModel):
     profile: dict
 
 
-# =========================================================
+# ============================================================
 # ROOT
-# =========================================================
+# ============================================================
 
 @app.get("/")
 def root():
     return {
-        "name": "Askforth API",
         "message": "Askforth backend is running",
-        "version": "1.0.0",
+        "status": "healthy",
     }
 
 
-# =========================================================
-# BASIC HEALTH CHECK
-# =========================================================
+# ============================================================
+# HEALTH
+# ============================================================
 
 @app.get("/health")
 def health():
@@ -107,24 +92,14 @@ def health():
     }
 
 
-# =========================================================
-# POSTGRESQL HEALTH CHECK
-# =========================================================
-
 @app.get("/health/db")
-def database_health(
-    db: Session = Depends(get_db),
-):
+def database_health(db: Session = Depends(get_db)):
     try:
-        result = db.execute(
-            text("SELECT 1")
-        )
-
+        db.execute("SELECT 1")
         return {
+            "status": "healthy",
             "database": "connected",
-            "result": result.scalar(),
         }
-
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -132,36 +107,52 @@ def database_health(
         )
 
 
-# =========================================================
+# ============================================================
 # CHAT
-# =========================================================
+# ============================================================
 
 @app.post("/chat")
 def chat(
     request: ChatRequest,
-    current_user=Depends(get_current_user),
+    authorization: str | None = Header(default=None),
 ):
-    try:
-        response = generate_response(
-            request.message
-        )
-
-        return {
-            "user_id": current_user["uid"],
-            "message": request.message,
-            "response": response,
-        }
-
-    except Exception as exc:
+    if not authorization:
         raise HTTPException(
-            status_code=500,
-            detail=f"LLM request failed: {exc}",
+            status_code=401,
+            detail="Authorization header required",
         )
 
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authorization header",
+        )
 
-# =========================================================
+    token = authorization.replace("Bearer ", "", 1).strip()
+
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing Firebase token",
+        )
+
+    try:
+        user = verify_firebase_token(token)
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Firebase token",
+        )
+
+    return {
+        "message": f"Hello {user.get('email', 'user')}",
+        "reply": f"You said: {request.message}",
+    }
+
+
+# ============================================================
 # CREATE RESEARCH SESSION
-# =========================================================
+# ============================================================
 
 @app.post("/research/session")
 def create_session(
@@ -174,27 +165,27 @@ def create_session(
     if not topic:
         raise HTTPException(
             status_code=400,
-            detail="Research topic cannot be empty.",
+            detail="Research topic cannot be empty",
         )
 
-    project = create_research_session(
+    session = create_research_session(
         db=db,
         user_id=current_user["uid"],
         topic=topic,
     )
 
-    project = set_current_question(
-        db,
-        project,
-        "What is the main purpose of this research report?",
-    )
+    return {
+        "session_id": session.id,
+        "topic": session.topic,
+        "status": session.status,
+        "question_index": session.question_index,
+        "current_question": session.current_question,
+    }
 
-    return project_to_dict(project)
 
-
-# =========================================================
-# GET RESEARCH SESSION
-# =========================================================
+# ============================================================
+# GET SINGLE RESEARCH SESSION
+# ============================================================
 
 @app.get("/research/session/{session_id}")
 def get_session(
@@ -202,73 +193,84 @@ def get_session(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    project = get_research_session(
+    session = get_research_session(
         db=db,
         session_id=session_id,
         user_id=current_user["uid"],
     )
 
-    if not project:
+    if not session:
         raise HTTPException(
             status_code=404,
-            detail="Research session not found.",
+            detail="Research session not found",
         )
 
-    return project_to_dict(project)
+    return {
+        "session_id": session.id,
+        "topic": session.topic,
+        "status": session.status,
+        "question_index": session.question_index,
+        "current_question": session.current_question,
+        "answers": session.answers or [],
+        "profile": session.profile or {},
+        "research_plan": session.research_plan or {},
+        "report": session.report,
+        "sources": session.sources or [],
+        "report_status": session.report_status,
+        "created_at": session.created_at,
+        "updated_at": session.updated_at,
+    }
 
 
-# =========================================================
+# ============================================================
 # INTERVIEW
-# =========================================================
+# ============================================================
 
 @app.post("/research/session/{session_id}/interview")
-def answer_interview(
+def submit_interview_answer(
     session_id: str,
-    request: ResearchAnswerRequest,
+    request: InterviewAnswerRequest,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    project = get_research_session(
-        db=db,
-        session_id=session_id,
-        user_id=current_user["uid"],
-    )
-
-    if not project:
-        raise HTTPException(
-            status_code=404,
-            detail="Research session not found.",
-        )
-
     answer = request.answer.strip()
 
     if not answer:
         raise HTTPException(
             status_code=400,
-            detail="Answer cannot be empty.",
+            detail="Answer cannot be empty",
+        )
+
+    session = get_research_session(
+        db=db,
+        session_id=session_id,
+        user_id=current_user["uid"],
+    )
+
+    if not session:
+        raise HTTPException(
+            status_code=404,
+            detail="Research session not found",
         )
 
     try:
-        updated_project = process_interview_answer(
+        result = save_interview_answer(
             db=db,
-            project=project,
+            session=session,
             answer=answer,
         )
-
-        return project_to_dict(
-            updated_project
-        )
-
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Interview processing failed: {exc}",
+            detail=f"Failed to save interview answer: {exc}",
         )
 
+    return result
 
-# =========================================================
+
+# ============================================================
 # RESEARCH PROJECT HISTORY
-# =========================================================
+# ============================================================
 
 @app.get("/research/projects")
 def get_research_projects(
@@ -280,18 +282,27 @@ def get_research_projects(
         user_id=current_user["uid"],
     )
 
-    return [
-        project_to_dict(project)
-        for project in projects
-    ]
+    return {
+        "projects": [
+            {
+                "session_id": project.id,
+                "topic": project.topic,
+                "status": project.status,
+                "report_status": project.report_status,
+                "created_at": project.created_at,
+                "updated_at": project.updated_at,
+            }
+            for project in projects
+        ]
+    }
 
 
-# =========================================================
+# ============================================================
 # RESEARCH PLAN
-# =========================================================
+# ============================================================
 
 @app.post("/research/plan")
-def research_plan(
+def create_research_plan(
     request: ResearchPlanRequest,
     current_user=Depends(get_current_user),
 ):
@@ -300,27 +311,26 @@ def research_plan(
     if not topic:
         raise HTTPException(
             status_code=400,
-            detail="Research topic cannot be empty.",
+            detail="Research topic cannot be empty",
         )
 
     try:
-        plan = create_research_plan(
+        plan = generate_research_plan(
             topic=topic,
             profile=request.profile,
         )
-
-        return plan
-
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Research planning failed: {exc}",
+            detail=f"Failed to generate research plan: {exc}",
         )
 
+    return plan
 
-# =========================================================
+
+# ============================================================
 # GENERATE RESEARCH REPORT
-# =========================================================
+# ============================================================
 
 @app.post("/research/session/{session_id}/report")
 def generate_report(
@@ -328,130 +338,83 @@ def generate_report(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    project = get_research_session(
+    session = get_research_session(
         db=db,
         session_id=session_id,
         user_id=current_user["uid"],
     )
 
-    if not project:
+    if not session:
         raise HTTPException(
             status_code=404,
-            detail="Research session not found.",
+            detail="Research session not found",
         )
 
-    # -----------------------------------------------------
-    # Prevent duplicate report generation
-    # -----------------------------------------------------
+    profile = session.profile or {}
 
-    if project.report_status == "completed" and project.report:
-        return project_to_dict(project)
+    # --------------------------------------------------------
+    # Generate research plan if it does not already exist
+    # --------------------------------------------------------
 
-    # -----------------------------------------------------
-    # Research must have a completed interview/profile
-    # -----------------------------------------------------
+    if not session.research_plan:
+        try:
+            plan = generate_research_plan(
+                topic=session.topic,
+                profile=profile,
+            )
 
-    if project.status not in (
-        "ready",
-        "researching",
-        "completed",
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Research interview is not complete yet.",
-        )
+            session.research_plan = plan
+            db.commit()
+            db.refresh(session)
+
+        except Exception as exc:
+            db.rollback()
+
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to generate research plan: {exc}",
+            )
+
+    # --------------------------------------------------------
+    # Generate evidence-based report
+    # --------------------------------------------------------
 
     try:
-
-        # -------------------------------------------------
-        # Mark research as running
-        # -------------------------------------------------
-
-        project.report_status = "researching"
-        project.status = "researching"
-
+        session.report_status = "generating"
         db.commit()
-        db.refresh(project)
 
-        # -------------------------------------------------
-        # Generate research plan
-        # -------------------------------------------------
-
-        plan = create_research_plan(
-            topic=project.topic,
-            profile=project.profile or {},
+        result = generate_research_report(
+            topic=session.topic,
+            profile=profile,
+            plan=session.research_plan,
         )
-
-        if not plan:
-            raise RuntimeError(
-                "Research planner returned an empty plan."
-            )
-
-        if plan.get("planning_error"):
-            raise RuntimeError(
-                plan["planning_error"]
-            )
-
-        tasks = plan.get("tasks", [])
-
-        if len(tasks) < 3:
-            raise RuntimeError(
-                "Research plan must contain at least 3 tasks."
-            )
-
-        # Save plan immediately
-        project.research_plan = plan
-
-        db.commit()
-        db.refresh(project)
-
-        # -------------------------------------------------
-        # Execute real web research + report generation
-        # -------------------------------------------------
-
-        report, sources = generate_research_report(
-            topic=project.topic,
-            profile=project.profile or {},
-            plan=plan,
-        )
-
-        if not report:
-            raise RuntimeError(
-                "Research report generation returned no report."
-            )
-
-        # -------------------------------------------------
-        # Save final research result
-        # -------------------------------------------------
-
-        project.report = report
-        project.sources = sources or []
-
-        project.report_status = "completed"
-        project.status = "completed"
-
-        db.commit()
-        db.refresh(project)
-
-        return project_to_dict(project)
 
     except Exception as exc:
-
-        # -------------------------------------------------
-        # Preserve failed state
-        # -------------------------------------------------
-
-        project.report_status = "failed"
-        project.status = "ready"
-
+        session.report_status = "failed"
         db.commit()
 
         raise HTTPException(
             status_code=500,
-            detail=f"Research report generation failed: {exc}",
+            detail=f"Failed to generate research report: {exc}",
         )
 
+    # --------------------------------------------------------
+    # Save report
+    # --------------------------------------------------------
 
-# =========================================================
-# END
-# =========================================================
+    session.report = result.get("report", "")
+    session.sources = result.get("sources", [])
+    session.report_status = "completed"
+    session.status = "completed"
+
+    db.commit()
+    db.refresh(session)
+
+    return {
+        "session_id": session.id,
+        "status": session.status,
+        "report_status": session.report_status,
+        "report": session.report,
+        "sources": session.sources,
+        "research_plan": session.research_plan,
+    }
