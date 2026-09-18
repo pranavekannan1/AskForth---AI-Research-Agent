@@ -1,10 +1,11 @@
 import { auth, authPersistence } from "@/lib/firebase";
 
-const API_URL =
+const API_URL = (
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === "production"
     ? "https://askforth-ai-research-agent.onrender.com"
-    : "http://127.0.0.1:8000");
+    : "http://127.0.0.1:8000")
+).replace(/\/$/, "");
 
 async function request(endpoint: string, options: RequestInit = {}) {
   try {
@@ -22,7 +23,7 @@ async function request(endpoint: string, options: RequestInit = {}) {
   } catch (error) {
     if (error instanceof TypeError) {
       throw new Error(
-        `Cannot reach the backend at ${API_URL}. Start the backend or set NEXT_PUBLIC_API_URL to its public URL.`,
+        `The browser blocked or could not reach ${API_URL}. Check the deployed backend CORS settings and NEXT_PUBLIC_API_URL.`,
       );
     }
     throw error;
@@ -33,7 +34,11 @@ export async function authenticatedFetch(
   endpoint: string,
   options: RequestInit = {},
 ) {
-  await authPersistence;
+  try {
+    await authPersistence;
+  } catch {
+    throw new Error("Firebase authentication could not be initialized. Check the public Firebase environment variables.");
+  }
 
   const user = auth.currentUser;
 

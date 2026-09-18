@@ -350,7 +350,7 @@ export default function ResearchPage() {
 
   const loadHistory = useCallback(async () => {
     const data = await authenticatedFetch("/research/projects");
-    setProjects(data.projects || []);
+    setProjects(Array.isArray(data) ? data : data.projects || []);
   }, []);
 
   useEffect(() => {
