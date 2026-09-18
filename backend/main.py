@@ -1,25 +1,28 @@
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from core.auth import get_current_user
 from core.database import get_db
 from core.firebase import verify_firebase_token
 from core.config import settings
+from init_db import main as initialize_database
 
 from services.research_service import (
     create_research_session,
     get_research_session,
     list_research_projects,
-    save_interview_answer,
+    set_current_question,
 )
 
 from services.interview_service import (
-    get_next_interview_question,
+    process_interview_answer,
+    project_to_dict,
 )
 
-from services.research_planner import generate_research_plan
+from services.research_planner import create_research_plan as generate_research_plan
 from services.research_report_service import generate_research_report
 
 
@@ -28,6 +31,11 @@ app = FastAPI(
     version=settings.APP_VERSION,
     description="Askforth AI Research Agent Backend",
 )
+
+
+@app.on_event("startup")
+def startup_database():
+    initialize_database()
 
 
 # ============================================================
@@ -96,7 +104,7 @@ def health():
 @app.get("/health/db")
 def database_health(db: Session = Depends(get_db)):
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         return {
             "status": "healthy",
             "database": "connected",
@@ -173,6 +181,12 @@ def create_session(
         db=db,
         user_id=current_user["uid"],
         topic=topic,
+    )
+
+    session = set_current_question(
+        db,
+        session,
+        "What is the main purpose of this research report?",
     )
 
     return {
@@ -255,9 +269,9 @@ def submit_interview_answer(
         )
 
     try:
-        result = save_interview_answer(
+        result = process_interview_answer(
             db=db,
-            session=session,
+            project=session,
             answer=answer,
         )
     except Exception as exc:
@@ -266,7 +280,7 @@ def submit_interview_answer(
             detail=f"Failed to save interview answer: {exc}",
         )
 
-    return result
+    return project_to_dict(result)
 
 
 # ============================================================
@@ -384,7 +398,7 @@ def generate_report(
         session.report_status = "generating"
         db.commit()
 
-        result = generate_research_report(
+        report, sources = generate_research_report(
             topic=session.topic,
             profile=profile,
             plan=session.research_plan,
@@ -403,8 +417,8 @@ def generate_report(
     # Save report
     # --------------------------------------------------------
 
-    session.report = result.get("report", "")
-    session.sources = result.get("sources", [])
+    session.report = report
+    session.sources = sources or []
     session.report_status = "completed"
     session.status = "completed"
 
