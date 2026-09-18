@@ -42,7 +42,7 @@ export default function HomePage() {
       <main className="landing-page">
         <div className="landing-content">
           <div className="landing-logo">✦</div>
-          <p>Restoring AskForth…</p>
+          <p>Initialising AskForth…</p>
         </div>
       </main>
     );
