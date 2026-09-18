@@ -77,7 +77,7 @@ export default function LoginPage() {
         <p className="auth-subtitle">
           {forgotPassword
             ? "Enter the email you used to register."
-            : "Sign in to continue your ResearchOS workspace."}
+            : "Sign in to continue your AskForth workspace."}
         </p>
 
         {resetSent ? (
@@ -116,7 +116,7 @@ export default function LoginPage() {
           Your account and research history are restored automatically on the next visit.
         </p>
         <p className="auth-footer">
-          New to ResearchOS? <Link href="/sign-up">Create an account</Link>
+          New to AskForth? <Link href="/sign-up">Create an account</Link>
         </p>
       </div>
     </main>
