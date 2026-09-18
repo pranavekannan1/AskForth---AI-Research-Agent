@@ -123,31 +123,3 @@ def verify_firebase_token(id_token: str):
 
     return auth.verify_id_token(id_token)
 
-
-# ---------------------------------------------------------
-# Password reset helper
-# ---------------------------------------------------------
-
-def resolve_password_reset_email(identifier: str) -> str:
-    """
-    Accept either an email address or Firebase UID.
-
-    If an email is supplied, return it directly.
-
-    If a Firebase UID is supplied, retrieve the user's
-    email address from Firebase.
-    """
-
-    value = identifier.strip()
-
-    if "@" in value:
-        return value
-
-    user = auth.get_user(value)
-
-    if not user.email:
-        raise ValueError(
-            "Firebase user does not have an email address"
-        )
-
-    return user.email

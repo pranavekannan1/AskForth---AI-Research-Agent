@@ -18,16 +18,10 @@ def get_or_create_user(db: Session, user_data: dict):
     user = db.query(User).filter(User.uid == uid).first()
 
     if user:
-        email = user_data.get("email")
-        if email and user.email != email:
-            user.email = email
-            db.commit()
-            db.refresh(user)
         return user
 
     user = User(
         uid=uid,
-        email=user_data.get("email"),
     )
     db.add(user)
     db.commit()

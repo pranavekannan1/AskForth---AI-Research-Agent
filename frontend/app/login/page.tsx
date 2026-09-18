@@ -10,7 +10,7 @@ import {
 } from "firebase/auth";
 
 import { auth, authPersistence } from "@/lib/firebase";
-import { authenticatedFetch, publicFetch } from "@/lib/api";
+import { authenticatedFetch } from "@/lib/api";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 
 export default function LoginPage() {
@@ -60,12 +60,7 @@ export default function LoginPage() {
 
     try {
       await authPersistence;
-      const data = await publicFetch("/auth/recovery-email", {
-        method: "POST",
-        body: JSON.stringify({ identifier: email.trim() }),
-      }) as { email: string };
-
-      await sendPasswordResetEmail(auth, data.email);
+      await sendPasswordResetEmail(auth, email.trim());
       setResetSent(true);
     } catch {
       setError("We could not send a reset email. Check your details and try again.");
@@ -81,7 +76,7 @@ export default function LoginPage() {
         <h1>Welcome back</h1>
         <p className="auth-subtitle">
           {forgotPassword
-            ? "Enter the email or user ID you used to register."
+            ? "Enter the email you used to register."
             : "Sign in to continue your ResearchOS workspace."}
         </p>
 
@@ -92,8 +87,8 @@ export default function LoginPage() {
         ) : (
         <form className="auth-form" onSubmit={forgotPassword ? handleForgotPassword : handleLogin}>
           <div className="auth-field">
-            <label htmlFor="email">{forgotPassword ? "Email or user ID" : "Email"}</label>
-            <input id="email" type={forgotPassword ? "text" : "email"} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
+            <label htmlFor="email">Email</label>
+            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
           </div>
           {!forgotPassword && <div className="auth-field">
             <label htmlFor="password">Password</label>

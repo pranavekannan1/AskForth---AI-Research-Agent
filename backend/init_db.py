@@ -39,10 +39,29 @@ def migrate_research_projects():
                 )
 
 
+def migrate_users():
+    inspector = inspect(engine)
+
+    if "users" not in inspector.get_table_names():
+        return
+
+    columns = {
+        column["name"]
+        for column in inspector.get_columns("users")
+    }
+
+    if "email" in columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE users DROP COLUMN email")
+            )
+
+
 def main():
     print("Creating database tables...")
     Base.metadata.create_all(bind=engine)
     migrate_research_projects()
+    migrate_users()
     print("Database tables created/migrated successfully.")
 
 

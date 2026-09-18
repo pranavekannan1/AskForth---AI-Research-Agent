@@ -183,7 +183,6 @@ def create_session(
     project = create_research_session(
         db=db,
         user_id=current_user["uid"],
-        email=current_user.get("email"),
         topic=topic,
     )
 
