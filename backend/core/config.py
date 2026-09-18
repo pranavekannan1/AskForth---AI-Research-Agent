@@ -11,3 +11,11 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY is not configured")
+
+
+class Settings:
+    APP_NAME = os.getenv("APP_NAME", "Askforth AI Research Agent")
+    APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
+
+
+settings = Settings()
