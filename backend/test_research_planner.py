@@ -54,3 +54,19 @@ def test_validate_research_plan_rejects_too_few_tasks():
         {"research_goal": "Goal", "tasks": []},
         "Topic",
     ) is None
+
+
+def test_create_research_plan_falls_back_when_model_is_unavailable(monkeypatch):
+    def unavailable(_prompt):
+        raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr(research_planner, "generate_response", unavailable)
+
+    plan = research_planner.create_research_plan(
+        topic="Future of renewable energy",
+        profile={},
+    )
+
+    assert plan["research_goal"] == "Future of renewable energy"
+    assert len(plan["tasks"]) == 3
+    assert all(task["source_types"] for task in plan["tasks"])

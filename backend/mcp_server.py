@@ -1,97 +1,96 @@
-"""MCP tools for testing AskForth report workflows safely.
+"""Credential-free MCP tools for AskForth users and support workflows.
 
-Run with: python mcp_server.py
-The server uses stdio and never requires provider credentials for local tests.
+Run separately from the application with:
+    python mcp_server.py
+
+This server performs local report inspection only. It does not access the
+AskForth database, Firebase, provider APIs, browser storage, or user tokens.
 """
 
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+import re
+from collections.abc import Mapping
 
 from mcp.server.fastmcp import FastMCP
 
-from services.llm_service import (
-    _local_revision,
-    parse_revision_json,
-)
-
 
 mcp = FastMCP(
-    "AskForth QA",
+    "AskForth User Tools",
     instructions=(
-        "Use these tools to test report revisions. Prefer offline scenario tests "
-        "before live backend checks. Never request or expose secrets."
+        "Use these local tools to inspect a report or clarify an edit request. "
+        "They never access credentials, accounts, databases, or provider APIs."
     ),
 )
 
+_REPORT_SECTIONS = (
+    "Executive Summary",
+    "Research Scope & Method",
+    "Key Findings",
+    "Evidence & Analysis",
+    "Contradictions & Limitations",
+    "Recommendations",
+    "Conclusion",
+    "Sources",
+)
+
 
 @mcp.tool()
-def run_revision_scenarios(report: str) -> dict:
-    """Run deterministic revision scenarios against a supplied report."""
-    scenarios = {
-        "shorter summary": "shorter summary",
-        "humanized report": "I need a humanized report",
-    }
-    results = {}
-    for name, request in scenarios.items():
-        revision = _local_revision(report, [], request)
-        results[name] = {
-            "passed": bool(revision and revision["report"].strip() != report.strip()),
-            "assistant_message": revision["assistant_message"] if revision else None,
-            "report_changed": bool(revision and revision["report"].strip() != report.strip()),
-        }
+def validate_report(report: str) -> dict[str, object]:
+    """Check report structure and source formatting without sending the report anywhere."""
+    text = report.strip()
+    headings = re.findall(r"^##\s+(.+?)\s*$", text, flags=re.MULTILINE)
+    source_urls = re.findall(r"https?://[^\s)]+", text)
+    missing_sections = [section for section in _REPORT_SECTIONS if section not in headings]
     return {
-        "passed": all(item["passed"] for item in results.values()),
-        "model_required_for_other_requests": True,
-        "scenarios": results,
+        "valid": bool(text) and text.startswith("# "),
+        "character_count": len(text),
+        "headings": headings,
+        "missing_recommended_sections": missing_sections,
+        "source_count": len(set(source_urls)),
+        "has_sources_section": "Sources" in headings,
     }
 
 
 @mcp.tool()
-def validate_revision_response(response: str) -> dict:
-    """Validate a model revision response without making a model request."""
-    try:
-        parsed = parse_revision_json(response)
-    except RuntimeError as error:
-        return {"valid": False, "error": str(error)}
-
-    report = parsed.get("report")
-    sources = parsed.get("sources", [])
+def classify_revision_request(request: str) -> dict[str, object]:
+    """Classify a user's report-edit request without calling an AI provider."""
+    text = request.strip().lower()
+    categories: list[str] = []
+    patterns: Mapping[str, tuple[str, ...]] = {
+        "shorter_summary": ("shorter summary", "brief summary", "shorten the summary"),
+        "stronger_evidence": ("stronger evidence", "more evidence", "add sources", "citations"),
+        "humanized_tone": ("humanized", "humanised", "more human", "natural tone"),
+        "different_audience": ("different audience", "for students", "for executives", "for beginners"),
+        "new_section": ("new section", "add a section", "include a section"),
+    }
+    for category, phrases in patterns.items():
+        if any(phrase in text for phrase in phrases):
+            categories.append(category)
     return {
-        "valid": isinstance(report, str) and bool(report.strip()),
-        "has_assistant_message": isinstance(parsed.get("assistant_message"), str),
-        "has_report": isinstance(report, str) and bool(report.strip()),
-        "sources_are_list": isinstance(sources, list),
+        "request": request.strip(),
+        "categories": categories,
+        "ambiguous": bool(text) and not categories,
+        "empty": not bool(text),
+        "suggestion": (
+            "Describe the section, audience, tone, or evidence you want changed."
+            if text and not categories
+            else None
+        ),
     }
 
 
 @mcp.tool()
-def check_backend_health(base_url: str = "http://127.0.0.1:8000") -> dict:
-    """Check the backend health endpoint without sending authentication data."""
-    url = f"{base_url.rstrip('/')}/health"
-    try:
-        with urlopen(Request(url, method="GET"), timeout=10) as response:
-            body = response.read().decode("utf-8")
-            return {"reachable": True, "status_code": response.status, "body": body}
-    except HTTPError as error:
-        return {"reachable": True, "status_code": error.code, "error": error.reason}
-    except URLError as error:
-        return {"reachable": False, "error": str(error.reason)}
-    except OSError as error:
-        return {"reachable": False, "error": str(error)}
-
-
-@mcp.tool()
-def run_release_checks(report: str, base_url: str = "") -> dict:
-    """Run offline revision checks and an optional backend health check."""
-    scenarios = run_revision_scenarios(report)
-    result = {
-        "passed": scenarios["passed"],
-        "revision_scenarios": scenarios,
+def report_review(report: str) -> dict[str, object]:
+    """Return a concise local quality review for a report before it is shared."""
+    validation = validate_report(report)
+    paragraphs = [part for part in re.split(r"\n\s*\n", report.strip()) if part.strip()]
+    return {
+        "validation": validation,
+        "paragraph_count": len(paragraphs),
+        "has_markdown_tables": "|" in report and "---" in report,
+        "has_uncertainty_language": bool(
+            re.search(r"\b(limitation|uncertain|uncertainty|conflicting)\b", report, re.I)
+        ),
     }
-    if base_url.strip():
-        result["backend_health"] = check_backend_health(base_url)
-        result["passed"] = result["passed"] and result["backend_health"]["reachable"]
-    return result
 
 
 if __name__ == "__main__":

@@ -190,13 +190,7 @@ def create_session(
         "What is the main purpose of this research report?",
     )
 
-    return {
-        "session_id": session.id,
-        "topic": session.topic,
-        "status": session.status,
-        "question_index": session.question_index,
-        "current_question": session.current_question,
-    }
+    return project_to_dict(session)
 
 
 # ============================================================
@@ -336,9 +330,13 @@ def create_research_plan(
             profile=request.profile,
         )
     except Exception as exc:
+        print(f"Research plan request failed: {exc}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate research plan: {exc}",
+            status_code=503,
+            detail=(
+                "Research planning is temporarily unavailable. "
+                "Your request is saved; please try again shortly."
+            ),
         )
 
     return plan
@@ -385,10 +383,13 @@ def generate_report(
 
         except Exception as exc:
             db.rollback()
-
+            print(f"Research plan generation failed for session {session_id}: {exc}")
             raise HTTPException(
-                status_code=500,
-                detail=f"Failed to generate research plan: {exc}",
+                status_code=503,
+                detail=(
+                    "Research planning is temporarily unavailable. "
+                    "Your research session is saved; please try again shortly."
+                ),
             )
 
     # --------------------------------------------------------

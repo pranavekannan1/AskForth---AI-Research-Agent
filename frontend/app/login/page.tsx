@@ -72,7 +72,9 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <div className="auth-card">
-        <div className="auth-logo">✦</div>
+        <Link className="auth-logo" href="/" aria-label="Go to AskForth home">
+          ✦
+        </Link>
         <h1>Welcome back</h1>
         <p className="auth-subtitle">
           {forgotPassword

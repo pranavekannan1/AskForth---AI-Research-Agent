@@ -307,15 +307,15 @@ RULES:
 * Return ONLY valid JSON.
 """
 
-    response = generate_response(prompt)
+    try:
+        response = generate_response(prompt)
+    except Exception as exc:
+        print(f"Research planner unavailable: {exc}")
+        return fallback_research_plan(topic)
 
     # LLM returned nothing
     if not response:
-        return {
-            "research_goal": topic,
-            "tasks": [],
-            "planning_error": "LLM returned an empty response",
-        }
+        return fallback_research_plan(topic)
 
     # Clean Markdown JSON fences
     cleaned_response = clean_llm_json(response)
@@ -325,12 +325,7 @@ RULES:
         plan = json.loads(cleaned_response)
 
     except json.JSONDecodeError:
-        return {
-            "research_goal": topic,
-            "tasks": [],
-            "planning_error": "LLM returned invalid JSON",
-            "raw_response": response,
-        }
+        return fallback_research_plan(topic)
 
     # Validate structure
     validated_plan = validate_research_plan(
@@ -339,11 +334,36 @@ RULES:
     )
 
     if validated_plan is None:
-        return {
-            "research_goal": topic,
-            "tasks": [],
-            "planning_error": "LLM returned an invalid research plan structure",
-            "raw_response": response,
-        }
+        return fallback_research_plan(topic)
 
     return validated_plan
+
+
+def fallback_research_plan(topic: str):
+    """Keep a session usable when the planning provider is unavailable."""
+    return {
+        "research_goal": topic,
+        "tasks": [
+            {
+                "task_id": "task_1",
+                "title": "Define the research scope",
+                "description": f"Clarify the key concepts, scope, and current context of {topic}.",
+                "priority": "high",
+                "source_types": ["official", "academic"],
+            },
+            {
+                "task_id": "task_2",
+                "title": "Collect authoritative evidence",
+                "description": f"Identify reliable findings and evidence relevant to {topic}.",
+                "priority": "high",
+                "source_types": ["government", "academic", "industry"],
+            },
+            {
+                "task_id": "task_3",
+                "title": "Assess limitations and recommendations",
+                "description": f"Compare evidence, identify uncertainty, and develop practical conclusions for {topic}.",
+                "priority": "medium",
+                "source_types": ["academic", "expert analysis"],
+            },
+        ],
+    }

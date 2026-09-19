@@ -62,6 +62,25 @@ From `backend`:
 .\.venv\Scripts\python.exe -m uvicorn main:app --reload
 ```
 
+## Optional MCP user tools
+
+AskForth includes a separate, credential-free MCP server for local report
+review. It is not imported by the web application and does not access Firebase,
+the database, provider APIs, browser storage, or user tokens.
+
+From `backend`, after installing `requirements.txt`:
+
+```powershell
+.\.venv\Scripts\python.exe mcp_server.py
+```
+
+Available tools:
+
+- `validate_report`: inspect headings and source links locally.
+- `classify_revision_request`: identify common edit requests such as shorter
+  summaries, stronger evidence, a humanized tone, or a new section.
+- `report_review`: return a local quality checklist without uploading content.
+
 ## Frontend
 
 From `frontend`:

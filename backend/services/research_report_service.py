@@ -133,6 +133,49 @@ def _run_research(prompt: str):
     return response
 
 
+def _fallback_report(topic: str, profile: dict, plan: dict) -> str:
+    """Return a transparent saved draft when web research is unavailable."""
+    tasks = plan.get("tasks", []) if isinstance(plan, dict) else []
+    task_lines = []
+    for task in tasks:
+        if isinstance(task, dict):
+            title = task.get("title", "Research task")
+            description = task.get("description", "")
+            task_lines.append(f"### {title}\n{description}")
+
+    task_text = "\n\n".join(task_lines) or "Research tasks are ready to run."
+    audience = profile.get("audience") if isinstance(profile, dict) else None
+    audience_text = audience or "the intended audience"
+    return f"""# {topic}
+
+## Executive Summary
+
+This research workspace has saved the scope and research plan for {audience_text}. Source-backed research is temporarily unavailable, so this document is a transparent draft rather than a completed evidence-based report.
+
+## Research Scope & Method
+
+The report is scoped to **{topic}**. The following research tasks define the evidence that should be collected before drawing conclusions:
+
+{task_text}
+
+## Key Findings
+
+No findings are presented yet because they have not been verified against sources.
+
+## Limitations
+
+This draft contains no unverified claims or invented sources. Complete the research run before relying on it for decisions.
+
+## Next Steps
+
+Retry the research run to collect authoritative sources and replace this draft with a completed report.
+
+## Sources
+
+No sources have been collected yet.
+"""
+
+
 def generate_research_report(
     topic: str,
     profile: dict,
@@ -259,7 +302,11 @@ Now conduct the research and write the complete report.
     # First research attempt
     # ---------------------------------------------------------
 
-    response = _run_research(prompt)
+    try:
+        response = _run_research(prompt)
+    except Exception as exc:
+        print(f"Research report unavailable: {exc}")
+        return _fallback_report(topic, profile, plan), []
 
     report = _extract_message_content(response)
     executed_tools = _extract_executed_tools(response)
