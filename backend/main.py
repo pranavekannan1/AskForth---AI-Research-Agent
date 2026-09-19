@@ -490,12 +490,16 @@ def improve_report(
             request=message,
         )
     except Exception as exc:
+        print(f"Report revision failed for session {session_id}: {exc}")
         session.report_status = "completed"
         db.commit()
         db.rollback()
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to improve research report: {exc}",
+            detail=(
+                "Your report could not be improved right now. "
+                "Your current report is still saved; please try again."
+            ),
         )
 
     session.report = revision["report"]

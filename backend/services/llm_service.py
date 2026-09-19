@@ -9,6 +9,32 @@ def get_client() -> Groq:
     return Groq(api_key=require_groq_api_key())
 
 
+def parse_revision_json(content: str) -> dict:
+    """Extract the first JSON object from a model response."""
+    cleaned_content = content.strip()
+    if cleaned_content.startswith("```"):
+        cleaned_content = cleaned_content.removeprefix("```").strip()
+        if cleaned_content.startswith("json"):
+            cleaned_content = cleaned_content[4:].strip()
+        if cleaned_content.endswith("```"):
+            cleaned_content = cleaned_content[:-3].strip()
+
+    try:
+        result = json.loads(cleaned_content)
+    except json.JSONDecodeError:
+        start = cleaned_content.find("{")
+        if start < 0:
+            raise RuntimeError("The report revision was not valid JSON")
+        try:
+            result, _ = json.JSONDecoder().raw_decode(cleaned_content[start:])
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("The report revision was not valid JSON") from exc
+
+    if not isinstance(result, dict):
+        raise RuntimeError("The report revision was not a JSON object")
+    return result
+
+
 def generate_response(message: str) -> str:
     response = get_client().chat.completions.create(
         model="openai/gpt-oss-120b",
@@ -95,20 +121,7 @@ specifically asks to remove or reorganize them.
     if not content:
         raise RuntimeError("Groq returned an empty report revision")
 
-    try:
-        result = json.loads(content)
-    except json.JSONDecodeError as exc:
-        cleaned_content = content.strip()
-        if cleaned_content.startswith("```"):
-            cleaned_content = cleaned_content.removeprefix("```").strip()
-            if cleaned_content.startswith("json"):
-                cleaned_content = cleaned_content[4:].strip()
-            if cleaned_content.endswith("```"):
-                cleaned_content = cleaned_content[:-3].strip()
-        try:
-            result = json.loads(cleaned_content)
-        except json.JSONDecodeError:
-            raise RuntimeError("Groq returned an invalid report revision") from exc
+    result = parse_revision_json(content)
 
     revised_report = result.get("report")
     assistant_message = result.get("assistant_message")
