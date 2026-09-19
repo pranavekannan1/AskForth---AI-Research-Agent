@@ -495,10 +495,9 @@ def improve_report(
         session.messages = conversation + [{
             "role": "assistant",
             "content": (
-                "I want to make the right change, but I need one clarification: "
-                "what should I change first in the report? For example, ask for "
-                "a shorter summary, stronger evidence, a different audience, "
-                "or a new section."
+                "Please choose the report change you want first: shorter summary, "
+                "stronger evidence, a different audience, or a new section. "
+                "You can also describe a specific change in your own words."
             ),
         }]
         db.commit()
