@@ -45,6 +45,18 @@ def _request_revision(prompt: str, structured: bool = True):
     return get_client().chat.completions.create(**options)
 
 
+def _fallback_revision(content: str, sources: list[str]) -> dict | None:
+    """Use a complete plain Markdown response when JSON was not returned."""
+    report = content.strip()
+    if not report.startswith("#") and "\n## " not in report:
+        return None
+    return {
+        "assistant_message": "I updated the report using your requested changes.",
+        "report": report,
+        "sources": sources,
+    }
+
+
 def generate_response(message: str) -> str:
     response = get_client().chat.completions.create(
         model="openai/gpt-oss-120b",
@@ -120,7 +132,14 @@ specifically asks to remove or reorganize them.
             content = response.choices[0].message.content
             if not content:
                 raise RuntimeError("Empty report revision")
-            result = parse_revision_json(content)
+            try:
+                result = parse_revision_json(content)
+            except RuntimeError:
+                if structured:
+                    raise
+                result = _fallback_revision(content, sources)
+                if result is None:
+                    raise
             break
         except Exception as exc:
             errors.append(exc)

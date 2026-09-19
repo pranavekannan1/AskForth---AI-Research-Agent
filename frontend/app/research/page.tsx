@@ -566,6 +566,10 @@ export default function ResearchPage() {
     setError("");
     setFollowup("");
     appendMessage("user", text);
+    setSession((current) => current ? {
+      ...current,
+      report_status: "revising",
+    } : current);
 
     try {
       const data = await authenticatedFetch(
@@ -574,7 +578,7 @@ export default function ResearchPage() {
           method: "POST",
           body: JSON.stringify({ message: text }),
         },
-      );
+      ) as Project;
 
       setMessages(
         (data.messages || []).map((message: StoredMessage, index: number) => ({
@@ -592,9 +596,19 @@ export default function ResearchPage() {
         messages: data.messages || current.messages || [],
         sources: data.sources || current.sources || [],
       } : current);
+
+      if (data.report && data.report !== session.report) {
+        setActiveView("report");
+      }
+      await loadHistory();
     } catch (err) {
       console.error("Sending research message failed", err);
       setError(err instanceof Error ? err.message : "Could not improve the report. Please try again.");
+      try {
+        await refreshSession(session.session_id);
+      } catch {
+        // Keep the original error visible.
+      }
     } finally {
       setLoading(false);
     }

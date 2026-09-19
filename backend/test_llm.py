@@ -39,3 +39,36 @@ def test_parse_revision_json_rejects_non_object():
         assert "JSON object" in str(error)
     else:
         raise AssertionError("Expected invalid revision JSON to be rejected")
+
+
+def test_revision_uses_plain_markdown_when_json_is_unavailable(monkeypatch):
+    responses = iter([
+        RuntimeError("structured output unavailable"),
+        SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(
+                        content="# Revised report\n\n## Key findings\n\nUpdated evidence."
+                    )
+                )
+            ]
+        ),
+    ])
+
+    def fake_request(_prompt, structured=True):
+        response = next(responses)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr(llm_service, "_request_revision", fake_request)
+
+    result = llm_service.revise_research_report(
+        topic="Test topic",
+        report="# Original report\n\n## Summary\n\nOriginal.",
+        sources=[],
+        conversation=[{"role": "user", "content": "Improve the evidence"}],
+        request="Improve the evidence",
+    )
+
+    assert result["report"].startswith("# Revised report")
