@@ -1,4 +1,5 @@
 import json
+import re
 
 from groq import Groq
 
@@ -54,6 +55,16 @@ def _fallback_revision(
     update = content.strip()
     if not update:
         return None
+    if update.startswith("{") and '"report"' in update:
+        report_match = re.search(
+            r'"report"\s*:\s*"(?P<report>(?:\\.|[^"\\])*)"\s*,\s*"sources"\s*:',
+            update,
+            flags=re.DOTALL,
+        )
+        if not report_match:
+            return None
+        update = report_match.group("report")
+        update = update.replace('\\"', '"').replace('\\n', "\n")
 
     if update.startswith("#") or "\n## " in update:
         revised_report = update
@@ -63,6 +74,50 @@ def _fallback_revision(
     return {
         "assistant_message": "I updated the report using your requested changes.",
         "report": revised_report,
+        "sources": sources,
+    }
+
+
+def _local_revision(
+    report: str,
+    sources: list[str],
+    request: str,
+) -> dict | None:
+    """Apply safe, unambiguous edits when the revision service is unavailable."""
+    request_text = request.lower()
+    wants_shorter_summary = (
+        "summary" in request_text
+        and ("short" in request_text or "brief" in request_text)
+    )
+    if not wants_shorter_summary:
+        return None
+
+    section = re.search(
+        r"(?ms)^(## Executive Summary\s*\n)(.*?)(?=^## |\Z)",
+        report,
+    )
+    if not section:
+        return None
+
+    body = section.group(2).strip()
+    paragraphs = [part.strip() for part in re.split(r"\n\s*\n", body) if part.strip()]
+    if not paragraphs:
+        return None
+
+    shortened = paragraphs[0]
+    sentences = re.split(r"(?<=[.!?])\s+", shortened)
+    if len(sentences) > 2:
+        shortened = " ".join(sentences[:2])
+
+    revised_report = (
+        report[:section.start(2)]
+        + shortened
+        + "\n\n"
+        + report[section.end(2):].lstrip("\n")
+    )
+    return {
+        "assistant_message": "I shortened the Executive Summary while preserving the report's evidence.",
+        "report": revised_report.strip(),
         "sources": sources,
     }
 
@@ -138,7 +193,15 @@ specifically asks to remove or reorganize them.
     result = None
     for structured in (True, False):
         try:
-            response = _request_revision(prompt, structured=structured)
+            request_prompt = prompt
+            if not structured:
+                request_prompt += """
+
+IMPORTANT RETRY FORMAT:
+Return ONLY the complete revised Markdown report. Do not return JSON,
+JSON-like wrappers, labels, or commentary outside the report.
+"""
+            response = _request_revision(request_prompt, structured=structured)
             content = response.choices[0].message.content
             if not content:
                 raise RuntimeError("Empty report revision")
@@ -155,7 +218,9 @@ specifically asks to remove or reorganize them.
             errors.append(exc)
 
     if result is None:
-        raise RuntimeError("The report revision could not be prepared") from errors[-1]
+        result = _local_revision(report, sources, request)
+        if result is None:
+            raise RuntimeError("The report revision could not be prepared") from errors[-1]
 
     revised_report = result.get("report")
     assistant_message = result.get("assistant_message")

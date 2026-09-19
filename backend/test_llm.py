@@ -97,3 +97,60 @@ def test_revision_preserves_report_for_plain_user_facing_answer(monkeypatch):
 
     assert "# Original report" in result["report"]
     assert "The requested comparison is now clearer." in result["report"]
+
+
+def test_revision_extracts_report_from_pseudo_json(monkeypatch):
+    monkeypatch.setattr(
+        llm_service,
+        "_request_revision",
+        lambda _prompt, structured=True: SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(
+                        content=(
+                            '{\n"assistant_message": "Updated",\n\n'
+                            '"report": "# Revised report\\n\\n## Summary\\n\\nUpdated.",\n\n'
+                            '"sources": []\n}'
+                        )
+                    )
+                )
+            ]
+        ) if not structured else (_ for _ in ()).throw(RuntimeError("JSON unavailable")),
+    )
+
+    result = llm_service.revise_research_report(
+        topic="Test topic",
+        report="# Original report",
+        sources=[],
+        conversation=[],
+        request="Improve the summary",
+    )
+
+    assert result["report"] == "# Revised report\n\n## Summary\n\nUpdated."
+
+
+def test_revision_shorter_summary_works_when_model_is_unavailable(monkeypatch):
+    def unavailable(_prompt, structured=True):
+        raise RuntimeError("revision service unavailable")
+
+    monkeypatch.setattr(llm_service, "_request_revision", unavailable)
+
+    result = llm_service.revise_research_report(
+        topic="Test topic",
+        report=(
+            "# Test topic\n\n"
+            "## Executive Summary\n\n"
+            "First sentence. Second sentence. Third sentence.\n\n"
+            "## Key Findings\n\nEvidence remains unchanged."
+        ),
+        sources=[],
+        conversation=[
+            {"role": "assistant", "content": "What should I change first?"},
+            {"role": "user", "content": "shorter summary"},
+        ],
+        request="shorter summary",
+    )
+
+    assert result["assistant_message"].startswith("I shortened")
+    assert "First sentence. Second sentence." in result["report"]
+    assert "Third sentence." not in result["report"]
