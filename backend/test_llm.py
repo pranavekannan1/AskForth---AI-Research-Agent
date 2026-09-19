@@ -30,3 +30,12 @@ def test_generate_response_returns_model_content(monkeypatch):
     monkeypatch.setattr(llm_service, "get_client", lambda: fake_client)
 
     assert llm_service.generate_response("Explain decorators") == "A concise answer"
+
+
+def test_parse_revision_json_rejects_non_object():
+    try:
+        llm_service.parse_revision_json("[1, 2, 3]")
+    except RuntimeError as error:
+        assert "JSON object" in str(error)
+    else:
+        raise AssertionError("Expected invalid revision JSON to be rejected")

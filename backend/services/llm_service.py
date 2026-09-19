@@ -35,6 +35,16 @@ def parse_revision_json(content: str) -> dict:
     return result
 
 
+def _request_revision(prompt: str, structured: bool = True):
+    options = {
+        "model": "openai/gpt-oss-120b",
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if structured:
+        options["response_format"] = {"type": "json_object"}
+    return get_client().chat.completions.create(**options)
+
+
 def generate_response(message: str) -> str:
     response = get_client().chat.completions.create(
         model="openai/gpt-oss-120b",
@@ -102,26 +112,21 @@ Keep the report in Markdown and keep its important sections unless the user
 specifically asks to remove or reorganize them.
 """
 
-    try:
-        response = get_client().chat.completions.create(
-            model="openai/gpt-oss-120b",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-        )
-    except Exception as structured_error:
+    errors = []
+    result = None
+    for structured in (True, False):
         try:
-            response = get_client().chat.completions.create(
-                model="openai/gpt-oss-120b",
-                messages=[{"role": "user", "content": prompt}],
-            )
-        except Exception:
-            raise structured_error
+            response = _request_revision(prompt, structured=structured)
+            content = response.choices[0].message.content
+            if not content:
+                raise RuntimeError("Empty report revision")
+            result = parse_revision_json(content)
+            break
+        except Exception as exc:
+            errors.append(exc)
 
-    content = response.choices[0].message.content
-    if not content:
-        raise RuntimeError("Groq returned an empty report revision")
-
-    result = parse_revision_json(content)
+    if result is None:
+        raise RuntimeError("The report revision could not be prepared") from errors[-1]
 
     revised_report = result.get("report")
     assistant_message = result.get("assistant_message")

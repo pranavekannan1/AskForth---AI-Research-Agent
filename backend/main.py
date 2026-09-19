@@ -412,9 +412,8 @@ def generate_report(
         raise HTTPException(
             status_code=500,
             detail=(
-                "Research report generation failed. Check that the backend "
-                "has a valid GROQ_API_KEY and that the research provider is "
-                "available, then retry."
+                "Research report generation failed. Your research session is "
+                "still saved; please try again."
             ),
         )
 
@@ -492,15 +491,19 @@ def improve_report(
     except Exception as exc:
         print(f"Report revision failed for session {session_id}: {exc}")
         session.report_status = "completed"
-        db.commit()
-        db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Your report could not be improved right now. "
-                "Your current report is still saved; please try again."
+        session.status = "ready"
+        session.messages = conversation + [{
+            "role": "assistant",
+            "content": (
+                "I want to make the right change, but I need one clarification: "
+                "what should I change first in the report? For example, ask for "
+                "a shorter summary, stronger evidence, a different audience, "
+                "or a new section."
             ),
-        )
+        }]
+        db.commit()
+        db.refresh(session)
+        return project_to_dict(session)
 
     session.report = revision["report"]
     session.sources = revision["sources"]
