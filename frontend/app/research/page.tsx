@@ -397,7 +397,6 @@ export default function ResearchPage() {
         const data = await authenticatedFetch(`/research/session/${session.session_id}`) as Project;
         setSession(data);
         setMessages(projectMessages(data));
-        if (data.report) setActiveView("report");
         if (data.report_status === "completed" || data.report_status === "failed") {
           await loadHistory();
         }
@@ -596,10 +595,6 @@ export default function ResearchPage() {
         messages: data.messages || current.messages || [],
         sources: data.sources || current.sources || [],
       } : current);
-
-      if (data.report && data.report !== session.report) {
-        setActiveView("report");
-      }
       await loadHistory();
     } catch (err) {
       console.error("Sending research message failed", err);
