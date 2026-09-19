@@ -72,3 +72,28 @@ def test_revision_uses_plain_markdown_when_json_is_unavailable(monkeypatch):
     )
 
     assert result["report"].startswith("# Revised report")
+
+
+def test_revision_preserves_report_for_plain_user_facing_answer(monkeypatch):
+    monkeypatch.setattr(
+        llm_service,
+        "_request_revision",
+        lambda _prompt, structured=True: SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content="The requested comparison is now clearer.")
+                )
+            ]
+        ) if not structured else (_ for _ in ()).throw(RuntimeError("JSON unavailable")),
+    )
+
+    result = llm_service.revise_research_report(
+        topic="Test topic",
+        report="# Original report\n\n## Summary\n\nOriginal.",
+        sources=[],
+        conversation=[],
+        request="Make the comparison clearer",
+    )
+
+    assert "# Original report" in result["report"]
+    assert "The requested comparison is now clearer." in result["report"]

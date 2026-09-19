@@ -45,14 +45,24 @@ def _request_revision(prompt: str, structured: bool = True):
     return get_client().chat.completions.create(**options)
 
 
-def _fallback_revision(content: str, sources: list[str]) -> dict | None:
-    """Use a complete plain Markdown response when JSON was not returned."""
-    report = content.strip()
-    if not report.startswith("#") and "\n## " not in report:
+def _fallback_revision(
+    content: str,
+    report: str,
+    sources: list[str],
+) -> dict | None:
+    """Preserve a report when the model returns useful non-JSON text."""
+    update = content.strip()
+    if not update:
         return None
+
+    if update.startswith("#") or "\n## " in update:
+        revised_report = update
+    else:
+        revised_report = f"{report.strip()}\n\n## Requested update\n\n{update}"
+
     return {
         "assistant_message": "I updated the report using your requested changes.",
-        "report": report,
+        "report": revised_report,
         "sources": sources,
     }
 
@@ -137,7 +147,7 @@ specifically asks to remove or reorganize them.
             except RuntimeError:
                 if structured:
                     raise
-                result = _fallback_revision(content, sources)
+                result = _fallback_revision(content, report, sources)
                 if result is None:
                     raise
             break
