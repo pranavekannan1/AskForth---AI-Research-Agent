@@ -411,7 +411,11 @@ def generate_report(
 
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to generate research report: {exc}",
+            detail=(
+                "Research report generation failed. Check that the backend "
+                "has a valid GROQ_API_KEY and that the research provider is "
+                "available, then retry."
+            ),
         )
 
     # --------------------------------------------------------

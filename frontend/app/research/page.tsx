@@ -540,7 +540,11 @@ export default function ResearchPage() {
       await loadHistory();
     } catch (err) {
       console.error("Research report generation failed", err);
-      setError("Research report generation failed. Please try again.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Research report generation failed. Please try again.",
+      );
       try {
         await refreshSession(id);
       } catch {

@@ -9,8 +9,14 @@ load_dotenv(BACKEND_DIR / ".env")
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 
-if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY is not configured")
+
+def require_groq_api_key() -> str:
+    if not GROQ_API_KEY:
+        raise RuntimeError(
+            "The backend is missing GROQ_API_KEY. Configure a new key in the "
+            "deployment environment and retry the report."
+        )
+    return GROQ_API_KEY
 
 
 class Settings:

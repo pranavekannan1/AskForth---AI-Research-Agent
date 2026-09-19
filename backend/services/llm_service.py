@@ -2,14 +2,15 @@ import json
 
 from groq import Groq
 
-from core.config import GROQ_API_KEY
+from core.config import require_groq_api_key
 
 
-client = Groq(api_key=GROQ_API_KEY)
+def get_client() -> Groq:
+    return Groq(api_key=require_groq_api_key())
 
 
 def generate_response(message: str) -> str:
-    response = client.chat.completions.create(
+    response = get_client().chat.completions.create(
         model="openai/gpt-oss-120b",
         messages=[
             {
@@ -76,14 +77,14 @@ specifically asks to remove or reorganize them.
 """
 
     try:
-        response = client.chat.completions.create(
+        response = get_client().chat.completions.create(
             model="openai/gpt-oss-120b",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
         )
     except Exception as structured_error:
         try:
-            response = client.chat.completions.create(
+            response = get_client().chat.completions.create(
                 model="openai/gpt-oss-120b",
                 messages=[{"role": "user", "content": prompt}],
             )

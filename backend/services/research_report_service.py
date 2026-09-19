@@ -3,15 +3,16 @@ from typing import Any
 
 from groq import Groq
 
-from core.config import GROQ_API_KEY
+from core.config import require_groq_api_key
 
 
-client = Groq(
-    api_key=GROQ_API_KEY,
-    default_headers={
-        "Groq-Model-Version": "latest"
-    },
-)
+def get_client() -> Groq:
+    return Groq(
+        api_key=require_groq_api_key(),
+        default_headers={
+            "Groq-Model-Version": "latest"
+        },
+    )
 
 
 def _collect_urls(value: Any, found: list[str]) -> None:
@@ -111,7 +112,7 @@ def _run_research(prompt: str):
     Run one Compound research request.
     """
 
-    response = client.chat.completions.create(
+    response = get_client().chat.completions.create(
         model="groq/compound",
         messages=[
             {
