@@ -89,8 +89,31 @@ def _local_revision(
         "summary" in request_text
         and ("short" in request_text or "brief" in request_text)
     )
-    if not wants_shorter_summary:
+    wants_humanized_report = any(
+        phrase in request_text
+        for phrase in ("humanized", "humanised", "more human", "natural tone")
+    )
+    if not wants_shorter_summary and not wants_humanized_report:
         return None
+
+    if wants_humanized_report:
+        replacements = {
+            "It is important to note that": "A key point is that",
+            "It should be noted that": "A key point is that",
+            "In order to": "To",
+            "Utilize": "Use",
+            "utilize": "use",
+            "Furthermore,": "Also,",
+            "In conclusion,": "Overall,",
+        }
+        revised_report = report.strip()
+        for original, natural in replacements.items():
+            revised_report = revised_report.replace(original, natural)
+        return {
+            "assistant_message": "I made the report more natural and reader-friendly while preserving its evidence.",
+            "report": revised_report,
+            "sources": sources,
+        }
 
     section = re.search(
         r"(?ms)^(## Executive Summary\s*\n)(.*?)(?=^## |\Z)",

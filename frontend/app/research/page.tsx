@@ -898,7 +898,7 @@ export default function ResearchPage() {
                   <div className="chat-message assistant">
                     <div className="message-avatar">✦</div>
                     <div className="message-bubble research-progress-message">
-                      <span className="dots">A is researching<span>.</span><span>.</span><span>.</span></span>
+                      <span className="dots">AskForth is researching<span>.</span><span>.</span><span>.</span></span>
                       <small>Searching sources, comparing evidence, and preparing your report.</small>
                     </div>
                   </div>

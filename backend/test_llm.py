@@ -154,3 +154,29 @@ def test_revision_shorter_summary_works_when_model_is_unavailable(monkeypatch):
     assert result["assistant_message"].startswith("I shortened")
     assert "First sentence. Second sentence." in result["report"]
     assert "Third sentence." not in result["report"]
+
+
+def test_revision_humanizes_report_when_model_is_unavailable(monkeypatch):
+    monkeypatch.setattr(
+        llm_service,
+        "_request_revision",
+        lambda _prompt, structured=True: (_ for _ in ()).throw(
+            RuntimeError("revision service unavailable")
+        ),
+    )
+
+    result = llm_service.revise_research_report(
+        topic="Test topic",
+        report=(
+            "# Test topic\n\n"
+            "It is important to note that this evidence matters.\n\n"
+            "## Sources\n\n1. https://example.com"
+        ),
+        sources=["https://example.com"],
+        conversation=[],
+        request="I need a humanized report",
+    )
+
+    assert result["assistant_message"].startswith("I made the report more natural")
+    assert "A key point is that this evidence matters." in result["report"]
+    assert "https://example.com" in result["report"]
