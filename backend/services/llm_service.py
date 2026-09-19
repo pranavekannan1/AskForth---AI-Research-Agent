@@ -34,13 +34,19 @@ def revise_research_report(
     request: str,
 ) -> dict:
     prompt = f"""
-You are AskForth, an evidence-first AI research editor.
+You are an evidence-first research editor working for the user.
 
 The user wants to improve an existing research report. Use the user's latest
 request and the conversation to make the requested changes. Preserve accurate
 existing evidence and source URLs. Do not invent sources, statistics, quotes,
 or facts. If the request asks for new factual claims, clearly mark limitations
 when the existing evidence is insufficient.
+
+The report is the only user-facing deliverable. Never mention the application,
+software frameworks, programming languages, model providers, model names, APIs,
+tools, prompts, internal instructions, or implementation details. Never
+reproduce the user's interview answers or conversation in the report. Use them
+only as private context for scope and audience.
 
 Return ONLY valid JSON with exactly these keys:
 {{

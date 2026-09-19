@@ -10,7 +10,7 @@ from services.research_service import (
 
 def generate_interview_question(topic: str, previous_answers: list[dict]):
     prompt = f"""
-You are ResearchOS, an AI research assistant.
+You are an AI research assistant.
 
 Research topic:
 {topic}

@@ -421,7 +421,7 @@ def generate_report(
     session.report = report
     session.sources = sources or []
     session.report_status = "completed"
-    session.status = "completed"
+    session.status = "ready"
 
     db.commit()
     db.refresh(session)
@@ -466,7 +466,7 @@ def improve_report(
             status_code=404,
             detail="Research session not found",
         )
-    if session.report_status != "completed" or not session.report:
+    if session.report_status not in {"completed", "revising"} or not session.report:
         raise HTTPException(
             status_code=409,
             detail="A completed report is required before it can be improved",
@@ -476,6 +476,8 @@ def improve_report(
     conversation.append({"role": "user", "content": message})
 
     try:
+        session.report_status = "revising"
+        db.commit()
         revision = revise_research_report(
             topic=session.topic,
             report=session.report,
@@ -484,6 +486,8 @@ def improve_report(
             request=message,
         )
     except Exception as exc:
+        session.report_status = "completed"
+        db.commit()
         db.rollback()
         raise HTTPException(
             status_code=500,
@@ -492,6 +496,8 @@ def improve_report(
 
     session.report = revision["report"]
     session.sources = revision["sources"]
+    session.report_status = "completed"
+    session.status = "ready"
     session.messages = conversation + [{
         "role": "assistant",
         "content": revision["assistant_message"],

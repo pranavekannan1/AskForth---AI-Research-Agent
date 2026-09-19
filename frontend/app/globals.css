@@ -243,6 +243,10 @@ button { cursor: pointer; }
   .research-main { display: block; height: auto; }
   .conversation { overflow: visible; }
   .report-page { width: auto; min-height: auto; padding: 0; margin: 0; }
+  .report-heading .report-label,
+  .report-heading p,
+  .report-meta,
+  .sources { display: none !important; }
   .report-heading { break-after: avoid; padding-bottom: 12pt; margin-bottom: 18pt; }
   .report-heading h2 { font-size: 24pt; }
   .report-heading p { font-size: 10pt; }

@@ -154,7 +154,7 @@ def generate_research_report(
     )
 
     prompt = f"""
-You are ResearchOS, an evidence-first AI research agent.
+You are an evidence-first research analyst.
 
 Your task is to conduct real web research and produce a professional,
 evidence-based research report.
@@ -240,7 +240,11 @@ with source title and URL when available.
 15. The final answer must be useful as a professional research report
 that can be rendered into a PDF.
 
-16. Do not discuss your internal reasoning or tool execution.
+16. The report must contain only the requested research deliverable. Do not
+include interview answers, user messages, private profile values, assistant
+messages, internal reasoning, tool execution, application names, software
+frameworks, programming languages, model providers, model names, APIs,
+prompts, or other implementation details.
 
 17. Do not say that you are unable to browse.
 

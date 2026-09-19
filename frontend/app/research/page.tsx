@@ -385,7 +385,12 @@ export default function ResearchPage() {
   // or while the browser was refreshed during research.
   useEffect(() => {
     if (!session?.session_id) return;
-    if (session.report_status !== "planning" && session.report_status !== "researching") return;
+    if (
+      session.report_status !== "planning" &&
+      session.report_status !== "researching" &&
+      session.report_status !== "generating" &&
+      session.report_status !== "revising"
+    ) return;
 
     const timer = window.setInterval(async () => {
       try {
@@ -548,7 +553,7 @@ export default function ResearchPage() {
 
   async function sendFollowup(e?: FormEvent) {
     e?.preventDefault();
-    if (!session || session.report_status !== "completed") return;
+    if (!session || !session.report || session.report_status !== "completed") return;
 
     const text = followup.trim();
     if (!text) return;
@@ -577,6 +582,8 @@ export default function ResearchPage() {
 
       setSession((current) => current ? {
         ...current,
+        status: "ready",
+        report_status: "completed",
         report: data.report || current.report,
         messages: data.messages || current.messages || [],
         sources: data.sources || current.sources || [],
@@ -665,7 +672,9 @@ export default function ResearchPage() {
   const researching =
     loading ||
     session?.report_status === "planning" ||
-    session?.report_status === "researching";
+    session?.report_status === "researching" ||
+    session?.report_status === "generating" ||
+    session?.report_status === "revising";
 
   const history = useMemo(() => projects.slice(0, 30), [projects]);
   const displayName = user?.displayName || user?.email?.split("@")[0] || "Researcher";
@@ -976,7 +985,7 @@ export default function ResearchPage() {
           </div>
         )}
 
-        {session?.report_status === "completed" ? (
+        {session?.report && session.report_status === "completed" ? (
           <form className="research-composer" onSubmit={sendFollowup}>
             <textarea
               value={followup}
