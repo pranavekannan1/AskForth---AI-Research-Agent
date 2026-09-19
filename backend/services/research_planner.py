@@ -242,24 +242,25 @@ Return ONLY valid JSON.
 
 Use exactly this structure:
 
-{
+{{
 "research_goal": "...",
-"research_strategy": {
+"research_strategy": {{
 "depth": "...",
 "recency_requirement": "...",
 "evidence_standard": "...",
 "verification_strategy": "..."
-},
+}},
 "tasks": [
-{
+{{
 "task_id": "task_1",
 "title": "...",
 "description": "...",
 "research_questions": [
-"...",
 "..."
-],
-"evidence_requirements": [
+]
+}}
+
+RULES:
 "...",
 "..."
 ],
@@ -269,7 +270,7 @@ Use exactly this structure:
 "industry"
 ],
 "requires_cross_verification": true
-}
+}}
 ],
 "cross_cutting_requirements": [
 "...",
@@ -283,7 +284,7 @@ Use exactly this structure:
 "...",
 "..."
 ]
-}
+}}
 
 RULES:
 
