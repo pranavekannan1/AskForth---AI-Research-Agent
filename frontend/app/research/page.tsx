@@ -245,7 +245,9 @@ function projectMessages(project: Project): ChatMessage[] {
     },
   ];
 
-  project.answers.forEach((answer, index) => {
+  const answers = project.answers || [];
+
+  answers.forEach((answer, index) => {
     result.push({
       id: `question-${index}`,
       role: "assistant",
@@ -259,7 +261,7 @@ function projectMessages(project: Project): ChatMessage[] {
   });
 
   const question = project.question || project.current_question;
-  if (question && !project.answers.some((answer) => answer.question === question)) {
+  if (question && !answers.some((answer) => answer.question === question)) {
     result.push({ id: "current-question", role: "assistant", text: question });
   }
 
@@ -539,10 +541,12 @@ export default function ResearchPage() {
       await loadHistory();
     } catch (err) {
       console.error("Research report generation failed", err);
+      const message = err instanceof Error ? err.message : "";
+      const internalFailure = /groq|model|provider|rate limit|tokens per day|api key/i.test(message);
       setError(
-        err instanceof Error
-          ? err.message
-          : "Research report generation failed. Please try again.",
+        internalFailure
+          ? "Research planning is temporarily unavailable. Your research session is saved; please try again shortly."
+          : message || "Research report generation failed. Please try again.",
       );
       try {
         await refreshSession(id);
@@ -679,7 +683,8 @@ export default function ResearchPage() {
     }
   }
 
-  const progress = session ? Math.min((session.answers.length / 3) * 100, 100) : 0;
+  const answerCount = session?.answers?.length || 0;
+  const progress = session ? Math.min((answerCount / 3) * 100, 100) : 0;
   const interviewActive = session?.status === "interview";
   const reportReady = session?.report_status === "completed" && !!session.report;
   const researching =
@@ -874,7 +879,7 @@ export default function ResearchPage() {
                   <span>
                     {reportReady
                       ? "Your report is saved. You can continue asking questions."
-                      : `${session.answers.length} / 3 requirements collected`}
+                      : `${answerCount} / 3 requirements collected`}
                   </span>
                 </div>
                 <div className="progress-track">
