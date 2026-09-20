@@ -224,10 +224,6 @@ function renderReportMarkdown(markdown: string): ReactNode[] {
   return elements;
 }
 
-async function exportReportToPdf() {
-  window.print();
-}
-
 function projectMessages(project: Project): ChatMessage[] {
   if (project.messages?.length) {
     return project.messages.map((message, index) => ({
@@ -279,6 +275,7 @@ function sourceLabel(url: string): string {
 export default function ResearchPage() {
   const router = useRouter();
   const conversationRef = useRef<HTMLDivElement>(null);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const [authReady, setAuthReady] = useState(false);
   const [restoring, setRestoring] = useState(true);
@@ -297,6 +294,64 @@ export default function ResearchPage() {
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+
+  const exportReportToPdf = useCallback(async () => {
+    if (!reportRef.current || exportingPdf) return;
+
+    setExportingPdf(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const reportCanvas = await html2canvas(reportRef.current, {
+        backgroundColor: "#ffffff",
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+        useCORS: true,
+        ignoreElements: (element) =>
+          element.classList.contains("print-report") ||
+          element.classList.contains("report-footer"),
+      });
+      const pdf = new jsPDF({ unit: "mm", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 12;
+      const contentWidth = pageWidth - margin * 2;
+      const contentHeight = (reportCanvas.height * contentWidth) / reportCanvas.width;
+      const pageContentHeight = pageHeight - margin * 2;
+      let renderedHeight = 0;
+
+      while (renderedHeight < contentHeight) {
+        if (renderedHeight > 0) pdf.addPage();
+        pdf.addImage(
+          reportCanvas,
+          "PNG",
+          margin,
+          margin - renderedHeight,
+          contentWidth,
+          contentHeight,
+        );
+        renderedHeight += pageContentHeight;
+      }
+
+      const blobUrl = URL.createObjectURL(pdf.output("blob"));
+      const downloadLink = document.createElement("a");
+      downloadLink.href = blobUrl;
+      const filename = `${session?.topic || "research-report"}`
+        .replace(/[^a-z0-9]+/gi, "-")
+        .replace(/^-|-$/g, "")
+        .toLowerCase() || "research-report";
+      downloadLink.download = `${filename}.pdf`;
+      downloadLink.click();
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch (error) {
+      console.error("PDF export failed", error);
+      window.print();
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [exportingPdf, session?.topic]);
 
   const refreshSession = useCallback(async (id: string) => {
     const data = await authenticatedFetch(`/research/session/${id}`) as Project;
@@ -948,7 +1003,7 @@ export default function ResearchPage() {
           )}
 
           {session && activeView === "report" && (
-            <div className="report-page">
+            <div className="report-page" ref={reportRef}>
               <div className="report-heading">
                 <div className="report-label">RESEARCH REPORT</div>
                 <h2>{session.topic}</h2>
@@ -989,8 +1044,8 @@ export default function ResearchPage() {
               )}
 
               {session.report && (
-                <button className="print-report" onClick={exportReportToPdf}>
-                  Save report as PDF
+                <button className="print-report" onClick={exportReportToPdf} disabled={exportingPdf}>
+                  {exportingPdf ? "Preparing PDF…" : "Save report as PDF"}
                 </button>
               )}
             </div>
@@ -1021,7 +1076,11 @@ export default function ResearchPage() {
         ) : session && activeView === "report" ? (
           <div className="report-footer">
             <button onClick={() => setActiveView("chat")}>← Back to conversation</button>
-            {session.report && <button onClick={exportReportToPdf}>Save as PDF</button>}
+            {session.report && (
+              <button onClick={exportReportToPdf} disabled={exportingPdf}>
+                {exportingPdf ? "Preparing PDF…" : "Save as PDF"}
+              </button>
+            )}
           </div>
         ) : (
           <form
