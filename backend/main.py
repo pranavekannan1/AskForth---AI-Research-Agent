@@ -12,6 +12,7 @@ from init_db import main as initialize_database
 
 from services.research_service import (
     create_research_session,
+    delete_research_session,
     get_research_session,
     list_research_projects,
     set_current_question,
@@ -230,6 +231,29 @@ def get_session(
         "created_at": session.created_at,
         "updated_at": session.updated_at,
     }
+
+
+# ============================================================
+# DELETE RESEARCH SESSION
+# ============================================================
+
+@app.delete("/research/session/{session_id}", status_code=204)
+def delete_session(
+    session_id: str,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    deleted = delete_research_session(
+        db=db,
+        session_id=session_id,
+        user_id=current_user["uid"],
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Research session not found",
+        )
 
 
 # ============================================================

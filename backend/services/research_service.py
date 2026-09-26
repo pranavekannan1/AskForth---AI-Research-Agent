@@ -72,8 +72,17 @@ def list_research_projects(db: Session, user_id: str):
     )
 
 
-def delete_research_session(db: Session, session_id: str):
-    project = get_research_session(db, session_id)
+def delete_research_session(
+    db: Session,
+    session_id: str,
+    user_id: str,
+):
+    """Delete a project only when it belongs to the authenticated user."""
+    project = get_research_session(
+        db,
+        session_id,
+        user_id=user_id,
+    )
     if not project:
         return None
 
