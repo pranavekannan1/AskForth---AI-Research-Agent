@@ -46,12 +46,8 @@ def startup_database():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://ask-forth-ai-research-agent.vercel.app",
-        "https://askforth-ai-research-agent.onrender.com",
-    ],
+    allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=settings.CORS_ORIGIN_REGEX or None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

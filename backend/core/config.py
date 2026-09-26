@@ -10,6 +10,10 @@ load_dotenv(BACKEND_DIR / ".env")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 
 
+def _comma_separated_values(value: str) -> list[str]:
+    return [item.strip().rstrip("/") for item in value.split(",") if item.strip()]
+
+
 def require_groq_api_key() -> str:
     if not GROQ_API_KEY:
         raise RuntimeError(
@@ -22,6 +26,25 @@ def require_groq_api_key() -> str:
 class Settings:
     APP_NAME = os.getenv("APP_NAME", "Askforth AI Research Agent")
     APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
+    CORS_ORIGINS = _comma_separated_values(
+        os.getenv(
+            "CORS_ORIGINS",
+            ",".join(
+                (
+                    "http://localhost:3000",
+                    "http://127.0.0.1:3000",
+                    "https://ask-forth-ai-research-agent.vercel.app",
+                    "https://askforth-ai-research-agent.onrender.com",
+                )
+            ),
+        )
+    )
+    # Vercel creates a distinct origin for preview and branch deployments.
+    # Explicit origins above cover local development and the production site.
+    CORS_ORIGIN_REGEX = os.getenv(
+        "CORS_ORIGIN_REGEX",
+        r"https://ask-forth-ai-research-agent(?:-[a-z0-9-]+)?\.vercel\.app",
+    )
 
 
 settings = Settings()
