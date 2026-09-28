@@ -1,4 +1,6 @@
-from fastapi import Depends, FastAPI, Header, HTTPException
+import logging
+
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -34,6 +36,8 @@ app = FastAPI(
     description="Askforth AI Research Agent Backend",
 )
 
+logger = logging.getLogger(__name__)
+
 
 @app.on_event("startup")
 def startup_database():
@@ -52,6 +56,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_rejected_cors_preflight(request: Request, call_next):
+    """Log the origin when CORS rejects a browser preflight request."""
+    response = await call_next(request)
+    if request.method == "OPTIONS" and response.status_code == 400:
+        origin = request.headers.get("origin")
+        if origin:
+            logger.warning("Rejected CORS preflight from origin: %s", origin)
+    return response
 
 
 # ============================================================

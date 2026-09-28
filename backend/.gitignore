@@ -2,8 +2,8 @@
 __pycache__/
 *.pyc
 .env*
-!.env.example
 *.log
 uploads/*
 !uploads/.gitkeep
 ai-research-agent-5f038-firebase-adminsdk-fbsvc-88c99e67c3.json
+.env.example*

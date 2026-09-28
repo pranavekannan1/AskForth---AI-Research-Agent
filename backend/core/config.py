@@ -40,10 +40,14 @@ class Settings:
         )
     )
     # Vercel creates a distinct origin for preview and branch deployments.
-    # Explicit origins above cover local development and the production site.
+    # The expression also supports the historical AskForth project spelling
+    # and local development servers running on a non-default port.
     CORS_ORIGIN_REGEX = os.getenv(
         "CORS_ORIGIN_REGEX",
-        r"https://ask-forth-ai-research-agent(?:-[a-z0-9-]+)?\.vercel\.app",
+        (
+            r"https?://(?:localhost|127\.0\.0\.1)(?::\d+)?"
+            r"|https://ask-?forth-ai-research-agent(?:-[a-z0-9-]+)?\.vercel\.app"
+        ),
     )
 
 
