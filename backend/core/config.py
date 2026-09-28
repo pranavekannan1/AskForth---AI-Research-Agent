@@ -1,8 +1,9 @@
 import os
 from pathlib import Path
-
+import re
 from dotenv import load_dotenv
-
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 load_dotenv(BACKEND_DIR / ".env")
@@ -39,9 +40,7 @@ class Settings:
             ),
         )
     )
-    # Vercel creates a distinct origin for preview and branch deployments.
-    # The expression also supports the historical AskForth project spelling
-    # and local development servers running on a non-default port.
+    # Regex to allow localhost, 127.0.0.1, and all Vercel preview deployments
     CORS_ORIGIN_REGEX = os.getenv(
         "CORS_ORIGIN_REGEX",
         (
@@ -52,3 +51,15 @@ class Settings:
 
 
 settings = Settings()
+
+# ✅ Apply CORS middleware using both fixed origins and regex
+app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=settings.CORS_ORIGIN_REGEX,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
